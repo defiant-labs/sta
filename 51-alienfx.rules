@@ -1,0 +1,4 @@
+ATTRS{idVendor}=="187c" ATTRS{idProduct}=="05[0-9]*", ENV{ID_MM_DEVICE_IGNORE}="1"
+
+SUBSYSTEM=="usb", ACTION=="add", ATTR{idVendor}=="187c", ATTR{idProduct}=="05[0-9]*", GROUP="video"
+

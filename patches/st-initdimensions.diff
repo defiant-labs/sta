@@ -1,0 +1,55 @@
+--- st.c~	2014-12-27 23:58:44.193583165 -0500
++++ st.c	2014-12-27 23:57:38.860406318 -0500
+@@ -320,6 +320,11 @@
+ 	const Arg arg;
+ } Shortcut;
+ 
++typedef struct {
++	uint min;
++	uint max;
++} Dimension;
++
+ /* function definitions used in config.h */
+ static void clippaste(const Arg *);
+ static void kscrolldown(const Arg *);
+@@ -4029,10 +4034,23 @@
+ 	"          [-i] [-t title] [-w windowid] [-e command ...]\n", argv0);
+ }
+ 
++uint
++urandr(uint max, uint min) {
++	struct timeval timestamp;
++
++	gettimeofday(&timestamp, NULL);
++
++	srand((timestamp.tv_sec * 1000) + (timestamp.tv_usec / 1000));
++
++	return (rand() % (max + 1 - min)) + min;
++}
++
+ int
+ main(int argc, char *argv[]) {
+ 	char *titles;
+-	uint cols = 80, rows = 24;
++
++	uint cols = urandr(dimensions[0].max, dimensions[0].min),
++		 rows = urandr(dimensions[1].max, dimensions[1].min);
+ 
+ 	xw.l = xw.t = 0;
+ 	xw.isfixed = False;
+
+--- config.def.h	2014-12-28 00:01:32.908657329 -0500
++++ config.h	2014-12-27 21:57:09.800341052 -0500
+@@ -36,6 +36,12 @@
+ static unsigned int xfps = 60;
+ static unsigned int actionfps = 30;
+ 
++/* Initial dimensions */
++static Dimension dimensions[] = {
++	{ 64, 128 }, // Column amount range
++	{ 20, 40 },  // Row amount range
++};
++
+ /*
+  * blinking timeout (set to 0 to disable blinking) for the terminal blinking
+  * attribute.

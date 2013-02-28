@@ -1,0 +1,227 @@
+--- config.def.h	2014-12-28 00:14:12.022950307 -0500
++++ config.h	2014-12-28 12:09:53.767104066 -0500
+@@ -85,7 +85,20 @@
+ 	[255] = 0,
+ 
+ 	/* more colors can be added after 255 to use with DefaultXX */
+-	"#cccccc",
++    "#fffaa9", // 256: White Gold
++    "#060500", // 257: Very dark yellow color
++    "#f8e040", // 258: Deus Gold
++    "#22050A", // 259: Dark Red
++    "#EB2F2F", // 260: Light Red
++    "#00bae8", // 261: Light Blue
++    "#5ec85e", // 262: Pastel Green
++    "#040404", // 263: Very dark Grey
++    "#07090b", // 264: Dark blue
++    "#a4f6f8", // 265: Light blue
++    "#ffeedd", // 266: White
++    "#ff742e", // 267: Orange
++    "#040000", // 268: Super-dark red
++    "#d477ff", // 269: Bright Violet
+ };
+ 
+ 
+@@ -105,6 +118,22 @@
+ static unsigned int defaultitalic = 11;
+ static unsigned int defaultunderline = 7;
+ 
++/* Color themes */
++static Theme themes[] = {
++/*    fg   bg   cursor italic underline */
++	{ 258, 257, 256,   11,    7}, // DXHR Golden
++	{ 9,   0,   9,     11,    7}, // Terminator Red on black
++	{ 262, 263, 15,    11,    7}, // Pastel Green on very dark grey
++	{ 261, 0,   265,   11,    7}, // Blue on Black
++	{ 265, 264, 15,    11,    7}, // Light Cyan on blueish Gray
++	{ 15,  0,   15,    11,    7}, // White on Black
++	{ 2,   0,   15,    11,    7}, // Green
++	{ 267, 268, 15,    11,    7}, // Orange
++};
++
++/* Default theme (-1 for random) */
++static int theme = -1;
++
+ /* Internal mouse shortcuts. */
+ /* Beware that overloading Button1 will disable the selection. */
+ static Mousekey mshortcuts[] = {
+@@ -127,8 +156,9 @@
+ 	{ ShiftMask,            XK_Insert,      selpaste,       {.i =  0} },
+ 	{ MODKEY|ShiftMask,     XK_Insert,      clippaste,      {.i =  0} },
+ 	{ MODKEY,               XK_Num_Lock,    numlock,        {.i =  0} },
++	{ MODKEY,               XK_a,           chgtheme,       {.i = +1} },
+ };
+ 
+ /*
+--- st.c~	2014-12-28 00:14:01.866755400 -0500
++++ st.c	2014-12-28 12:14:31.488618385 -0500
+@@ -321,6 +321,14 @@
+ } Shortcut;
+ 
++typedef struct {
++	uint fg; // Foreground
++	uint bg; // Background
++	uint cs; // Cursor
++	uint it; // Italic
++	uint ul; // Underline
++} Theme;
++
+ typedef struct {
+ 	uint min;
+ 	uint max;
+ } Dimension;
+@@ -334,6 +342,7 @@
+ static void xzoom(const Arg *);
+ static void xzoomabs(const Arg *);
+ static void xzoomreset(const Arg *);
++static void chgtheme(const Arg *);
+ static void printsel(const Arg *);
+ static void printscreen(const Arg *) ;
+ static void toggleprinter(const Arg *);
+@@ -442,6 +451,7 @@
+ static void xunloadfont(Font *);
+ static void xunloadfonts(void);
+ static void xresize(int, int);
++static void settheme(int);
+ 
+ static void expose(XEvent *);
+ static void visibility(XEvent *);
+@@ -480,6 +490,7 @@
+ static void *xmalloc(size_t);
+ static void *xrealloc(void *, size_t);
+ static char *xstrdup(char *);
++static uint urandr(uint max, uint min);
+ 
+ static void usage(void);
+ 
+@@ -527,6 +538,8 @@
+ static long utfmin[UTF_SIZ + 1] = {       0,    0,  0x80,  0x800,  0x10000};
+ static long utfmax[UTF_SIZ + 1] = {0x10FFFF, 0x7F, 0x7FF, 0xFFFF, 0x10FFFF};
+ 
++struct timeval timestamp;
++
+ /* Font Ring Cache */
+ enum {
+ 	FRC_NORMAL,
+@@ -3185,6 +3198,42 @@
+ 	}
+ }
+ 
++int
++argb(int a, int r, int g, int b) {
++	int argb = a;
++
++	argb = (argb << 8) + r;
++	argb = (argb << 8) + g;
++	argb = (argb << 8) + b;
++
++	return argb;
++}
++
++void
++updicon(void) {
++	int fg_r = (&dc.col[defaultfg])->color.red / 256;
++	int fg_g = (&dc.col[defaultfg])->color.green / 256;
++	int fg_b = (&dc.col[defaultfg])->color.blue / 256;
++
++	int bg_r = (&dc.col[defaultbg])->color.red / 256;
++	int bg_g = (&dc.col[defaultbg])->color.green / 256;
++	int bg_b = (&dc.col[defaultbg])->color.blue / 256;
++
++	int icon_fg = argb(255, fg_r, fg_g, fg_b);
++	int icon_bg = argb(255, bg_r, bg_g, bg_b);
++
++	unsigned long icon[] = {
++		16, 16,
++		318767104, 1291845632, 1308622848, 1308622848, 1308622848, 1308622848, 1308622848, 1308622848, 1308622848, 1308622848, 1308622848, 1308622848, 1308622848, 1308622848, 1291845632, 318767104, 1711276032, -53818678, -3026479, -2697514, -2368549, -2105377, -1776412, -1513240, -1184275, -1052689, -1447447, -1776412, -2105377, -2368549, -53358127, 1711276032, 1711276032, -3421237, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -2960686, 1711276032, 1728053248, -3421237, icon_bg, icon_fg, icon_fg, icon_fg, icon_fg, icon_fg, icon_fg, icon_fg, icon_fg, icon_fg, icon_fg, icon_bg, -3026479, 1728053248, 1728053248, -3421237, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -3158065, 1728053248, 1728053248, -3421237, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, -3355444, 1728053248, 1728053248, -3421237, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -3487030, 1728053248, 1728053248, -3421237, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_bg, icon_bg, icon_fg, icon_bg, icon_fg, icon_bg, icon_bg, -3618616, 1728053248, 1728053248, -3355444, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -3684409, 1728053248, 1728053248, -3289651, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_fg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, -3750202, 1728053248, 1728053248, -3223858, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -3750202, 1728053248, 1728053248, -3158065, -4671304, -4737097, -4539718, -4342339, -4144960, -4079167, -4276546, -4539718, -4671304, -4868683, -5066062, -5066062, -3750202, 1728053248, 1711276032, -3815995, -8158333, -8026747, -7895161, -7697782, -7434610, -7434610, -7697782, -7895161, -8092540, -8289919, -8553091, -8684677, -4342339, 1711276032, 1711276032, -88096833, -19737902, -19408937, -19079972, -18751007, -18356249, -18487835, -18882593, -19277351, -19606316, -20001074, -20395832, -20724797, -88754763, 1711276032, 956301312, -1711276032, -1694498816, -1694498816, -1694498816, -1694498816, -1694498816, -1694498816, -1694498816, -1694498816, -1694498816, -1694498816, -1694498816, -1694498816, -1711276032, 956301312, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
++
++		32, 32,
++		0, 0, 67108864, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 83886080, 67108864, 0, 0, 0, 167772160, 570425344, 687865856, 687865856, 687865856, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 704643072, 687865856, 687865856, 570425344, 167772160, 0, 83886080, 721420288, -540226356, -53358127, -53226541, -53094955, -52963369, -52831783, -52700197, -52568611, -52437025, -52305439, -52173853, -52042267, -51910681, -51713302, -51581716, -51450130, -51384337, -51515923, -51581716, -51779095, -51976474, -52108060, -52239646, -52437025, -52568611, -52700197, -52831783, -539963184, 721420288, 83886080, 117440512, 1006632960, -3026479, -4671304, -4605511, -4473925, -4342339, -4210753, -4079167, -3947581, -3815995, -3684409, -3618616, -3421237, -3289651, -3223858, -3026479, -2894893, -2829100, -3026479, -3158065, -3289651, -3421237, -3618616, -3684409, -3815995, -4013374, -4144960, -4210753, -2697514, 1006632960, 117440512, 117440512, 1056964608, -3815995, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -3552823, 1056964608, 117440512, 134217728, 1056964608, -3947581, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -3618616, 1056964608, 134217728, 134217728, 1056964608, -3947581, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, -3684409, 1056964608, 134217728, 134217728, 1056964608, -3947581, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -3750202, 1056964608, 134217728, 134217728, 1056964608, -3947581, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_bg, -3815995, 1056964608, 134217728, 134217728, 1056964608, -4013374, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, -3881788, 1056964608, 134217728, 134217728, 1056964608, -3947581, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, -3881788, 1056964608, 134217728, 134217728, 1056964608, -4013374, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -3947581, 1056964608, 134217728, 134217728, 1056964608, -4013374, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -4079167, 1056964608, 134217728, 134217728, 1056964608, -4013374, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -4079167, 1056964608, 134217728, 134217728, 1056964608, -4013374, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, -4144960, 1056964608, 134217728, 134217728, 1056964608, -4079167, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, -4210753, 1056964608, 134217728, 134217728, 1056964608, -3947581, icon_bg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_fg, icon_fg, icon_fg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -4210753, 1056964608, 134217728, 134217728, 1056964608, -3881788, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_fg, icon_fg, icon_fg, icon_fg, icon_bg, icon_fg, icon_bg, icon_bg, icon_fg, icon_fg, icon_bg, icon_fg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -4144960, 1056964608, 134217728, 134217728, 1056964608, -3815995, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -4144960, 1056964608, 134217728, 134217728, 1056964608, -3750202, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -4079167, 1056964608, 134217728, 134217728, 1056964608, -3684409, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -4079167, 1056964608, 134217728, 134217728, 1056964608, -3618616, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -4013374, 1056964608, 134217728, 134217728, 1056964608, -3355444, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -3815995, 1056964608, 134217728, 134217728, 1056964608, -3223858, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, icon_bg, -3750202, 1056964608, 134217728, 134217728, 1056964608, -3092272, -2236963, -2105377, -1973791, -1842205, -1710619, -1579033, -1447447, -1315861, -1184275, -1052689, -921103, -855310, -1052689, -1184275, -1315861, -1447447, -1644826, -1776412, -1842205, -2039584, -2171170, -2302756, -2434342, -2631721, -2763307, -2829100, -3552823, 1056964608, 134217728, 134217728, 1056964608, -3158065, -3355444, -4539718, -4473925, -4276546, -4210753, -4013374, -3881788, -3750202, -3618616, -3421237, -3355444, -3355444, -3487030, -3618616, -3815995, -3947581, -4079167, -4276546, -4408132, -4539718, -4737097, -4868683, -5000269, -5131855, -5329234, -4079167, -3750202, 1056964608, 134217728, 117440512, 1056964608, -3092272, -3289651, -4868683, -4737097, -4605511, -4473925, -4276546, -4210753, -4013374, -3947581, -3750202, -3618616, -3684409, -3815995, -3947581, -4144960, -4276546, -4473925, -4605511, -4802890, -4868683, -5066062, -5197648, -5395027, -5526613, -5723992, -4013374, -3750202, 1056964608, 117440512, 117440512, 973078528, -895311198, -204879415, -204682036, -204550450, -204418864, -204155692, -204024106, -203826727, -203760934, -203563555, -203366176, -203234590, -203366176, -203563555, -203760934, -203892520, -204089899, -204221485, -204484657, -204616243, -204813622, -205011001, -205208380, -205339966, -205471552, -205668931, -205668931, -895837542, 973078528, 117440512, 50331648, 570425344, 1560281088, 1761607680, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1778384896, 1761607680, 1560281088, 570425344, 50331648, 0, 83886080, 301989888, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 335544320, 301989888, 83886080, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
++	};
++
++	Atom net_wm_icon = XInternAtom(xw.dpy, "_NET_WM_ICON", False);
++	Atom cardinal = XInternAtom(xw.dpy, "CARDINAL", False);
++	unsigned int length = 2 + 16 * 16 + 2 + 32 * 32;
++	XChangeProperty(xw.dpy, xw.win, net_wm_icon, cardinal, 32, PropModeReplace, (const unsigned char*)icon, length);
++}
++
+ void
+ xinit(void) {
+ 	XGCValues gcvalues;
+@@ -3282,6 +3331,8 @@
+ 	XChangeProperty(xw.dpy, xw.win, xw.netwmpid, XA_CARDINAL, 32,
+ 			PropModeReplace, (uchar *)&thispid, 1);
+ 
++	updicon();
++
+ 	xresettitle();
+ 	XMapWindow(xw.dpy, xw.win);
+ 	xhints();
+@@ -3785,6 +3836,59 @@
+ 	term.numlock ^= 1;
+ }
+ 
++void
++settheme(int id) {
++#if defined(__alienfx__)
++	int afx = 1;
++#endif
++
++	if( id < 0 ) {
++#if defined(__alienfx__)
++		afx = 0;
++#endif
++
++		id = urandr(LEN(themes), 0);
++	}
++
++	defaultfg = themes[id].fg;
++	defaultbg = themes[id].bg;
++	defaultcs = themes[id].cs;
++	defaultitalic = themes[id].it;
++	defaultunderline = themes[id].ul;
++
++	uint i, j;
++	if (term.c.y > 0) {
++		term.c = (TCursor){{
++			.mode = ATTR_NULL,
++			.fg = defaultfg,
++			.bg = defaultbg
++		}, .x = term.c.x, .y = term.c.y, .state = CURSOR_DEFAULT};
++		for(i = 0; i < term.row; i++) {
++			term.dirty[i] = 1;
++			for(j = 0; j < term.col; j++) {
++				term.line[i][j].fg = defaultfg;
++				term.line[i][j].bg = defaultbg;
++				// term.line[i][j].cs = defaultcs;
++				// term.line[i][j].it = defaultitalic;
++				// term.line[i][j].ul = defaultunderline;
++			}
++		}
++		redraw(0);
++	}
++
++#if defined(__alienfx__)
++	if(afx > 0) alienfx();
++#endif
++}
++
++void
++chgtheme(const Arg *arg) {
++	theme = (theme+1 == LEN(themes)) ? 0 : (theme + 1);
++
++	settheme(theme);
++	updicon();
++}
++
+ char*
+ kmap(KeySym k, uint state) {
+ 	Key *kp;
+@@ -4099,6 +4202,7 @@
+ run:
+ 	setlocale(LC_CTYPE, "");
+ 	XSetLocaleModifiers("");
++	settheme(theme);
+ 	tnew(cols? cols : 1, rows? rows : 1);
+ 	xinit();
+ 	selinit();
